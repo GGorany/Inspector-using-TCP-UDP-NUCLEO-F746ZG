@@ -1,0 +1,214 @@
+﻿<Window x:Class="VI_Status_Display.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:prism="http://prismlibrary.com/"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:interactivity="clr-namespace:System.Windows.Interactivity;assembly=System.Windows.Interactivity"
+        xmlns:ipText="clr-namespace:IPTextBox"
+        prism:ViewModelLocator.AutoWireViewModel="True"
+        Title="{Binding Title}" Height="630" Width="400" ResizeMode="NoResize">
+
+    <interactivity:Interaction.Triggers>
+        <interactivity:EventTrigger EventName="Closing">
+            <interactivity:InvokeCommandAction Command="{Binding CloseWindowCommand}" />
+        </interactivity:EventTrigger>
+    </interactivity:Interaction.Triggers>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <GroupBox Grid.Row="0" Header="UDP settings">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="85" />
+                    <ColumnDefinition Width="85" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="1" Margin="2" HorizontalAlignment="Right">
+                    IP 입력 :
+                </TextBlock>
+
+                <ipText:IPTextBox Grid.Row="0" Grid.Column="2" Margin="2" IsEnabled="{Binding IsNotRunning}"
+                                  Address="{Binding ip_Address}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="1" Margin="2" HorizontalAlignment="Right" >
+                    Port 입력 :
+                </TextBlock>
+
+                <TextBox Grid.Row="1" Grid.Column="2" Margin="2" TextAlignment="Right" 
+                         IsEnabled="{Binding IsNotRunning}" Text="{Binding Port}"/>
+
+                <Button Grid.Row="0" Grid.Column="3" Grid.RowSpan="2" Margin="2"
+                        Command="{Binding Connection}" Foreground="Green" >
+                    <Bold>Connect</Bold>
+                </Button>
+
+                <Button Grid.Row="0" Grid.Column="4" Grid.RowSpan="2" Margin="2"
+                        Command="{Binding DisConnection}" Foreground="Red" >
+                    <Bold>DisConnect</Bold>
+                </Button>
+            </Grid>
+        </GroupBox>
+
+        <GroupBox Grid.Row="1" Header="Status Data">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="95" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="95" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Margin="2" HorizontalAlignment="Right" >
+                    FW Version :
+                </TextBlock>
+                
+                <TextBlock Grid.Row="1" Grid.Column="0" Margin="2" HorizontalAlignment="Right" >
+                    CAM 0 Trigger :
+                </TextBlock>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Margin="2" HorizontalAlignment="Right" >
+                    CAM 1 Trigger :
+                </TextBlock>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Margin="2" HorizontalAlignment="Right" >
+                    CAM 2 Trigger :
+                </TextBlock>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Margin="2" HorizontalAlignment="Right" >
+                    CAM 3 Trigger :
+                </TextBlock>
+
+                <TextBlock Grid.Row="0" Grid.Column="2" Margin="2" HorizontalAlignment="Right" >
+                    Input Sensing :
+                </TextBlock>
+                
+                <TextBlock Grid.Row="1" Grid.Column="2" Margin="2" HorizontalAlignment="Right" >
+                    OK Expose :
+                </TextBlock>
+
+                <TextBlock Grid.Row="2" Grid.Column="2" Margin="2" HorizontalAlignment="Right" >
+                    NG1 Expose :
+                </TextBlock>
+
+                <TextBlock Grid.Row="3" Grid.Column="2" Margin="2" HorizontalAlignment="Right" >
+                    NG2 Expose :
+                </TextBlock>
+
+                <TextBlock Grid.Row="4" Grid.Column="2" Margin="2" HorizontalAlignment="Right" >
+                    Untreat Expose :
+                </TextBlock>
+
+                <TextBox Grid.Row="0" Grid.Column="1" Margin="0" BorderBrush="LightGray" TextAlignment="Center"
+                         IsReadOnly="True" Text="{Binding Firmware_Version, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBox Grid.Row="1" Grid.Column="1" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding CAM0_Trigger, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBox Grid.Row="2" Grid.Column="1" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding CAM1_Trigger, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBox Grid.Row="3" Grid.Column="1" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding CAM2_Trigger, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBox Grid.Row="4" Grid.Column="1" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding CAM3_Trigger, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBox Grid.Row="0" Grid.Column="3" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding Input_Sensing, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBox Grid.Row="1" Grid.Column="3" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding OK_Expose, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBox Grid.Row="2" Grid.Column="3" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding NG1_Expose, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBox Grid.Row="3" Grid.Column="3" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding NG2_Expose, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBox Grid.Row="4" Grid.Column="3" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding Untreat_Expose, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
+        </GroupBox>
+
+        <GroupBox Grid.Row="2" Header="Etc">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="95" />
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Margin="2" HorizontalAlignment="Right" >
+                    Mode :
+                </TextBlock>
+
+                <TextBox Grid.Row="0" Grid.Column="1" Margin="0" BorderBrush="LightGray" TextAlignment="Center"
+                         IsReadOnly="True" Text="{Binding Current_State, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock Grid.Row="0" Grid.Column="2" Margin="2" HorizontalAlignment="Right" >
+                    Encoder Count :
+                </TextBlock>
+
+                <TextBox Grid.Row="0" Grid.Column="3" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding Encoder_Count, UpdateSourceTrigger=PropertyChanged}" />
+                
+                <TextBlock Grid.Row="1" Grid.Column="0" Margin="2" HorizontalAlignment="Right" >
+                    Bolt Number :
+                </TextBlock>
+
+                <TextBox Grid.Row="1" Grid.Column="1" Margin="0" BorderBrush="LightGray" TextAlignment="Right"
+                         IsReadOnly="True" Text="{Binding Bolt_Number, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
+        </GroupBox>
+
+        <GroupBox Grid.Row="3" Header="Bolt Instance">
+            <DataGrid x:Name="boltInstanceDataGrid" Margin="0"
+                      IsReadOnly="True"
+                      ItemsSource="{Binding BoltInstanceDatas}"
+                      AutoGenerateColumns="False"
+                      GridLinesVisibility="Horizontal">
+
+                <!-- Font Color / Style of Column Headers -->
+                <DataGrid.Resources>
+                    <Style TargetType="{x:Type DataGridColumnHeader}">
+                        <Setter Property="Background" Value="AliceBlue"/>
+                    </Style>
+                </DataGrid.Resources>
+                
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding Number}" Header="Number" Width="64" />
+                    <DataGridTextColumn Binding="{Binding Position}" Header="Position" Width="75" />
+                    <DataGridTextColumn Binding="{Binding CAM0}" Header="CAM 0" Width="48" />
+                    <DataGridTextColumn Binding="{Binding CAM1}" Header="CAM 1" Width="48" />
+                    <DataGridTextColumn Binding="{Binding CAM2}" Header="CAM 2" Width="48" />
+                    <DataGridTextColumn Binding="{Binding CAM3}" Header="CAM 3" Width="48" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+    </Grid>
+
+</Window>

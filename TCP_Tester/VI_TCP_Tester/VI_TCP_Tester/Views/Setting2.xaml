@@ -1,0 +1,70 @@
+﻿<UserControl x:Class="VI_TCP_Tester.Views.Setting2"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:VI_TCP_Tester.Views"
+             xmlns:prism="http://prismlibrary.com/"
+             mc:Ignorable="d" 
+             prism:ViewModelLocator.AutoWireViewModel="True" >
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="60" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="60" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Margin="1" HorizontalAlignment="Right" Text="CAM 판정대기(ms) :"/>
+        <TextBlock Grid.Row="0" Grid.Column="2" Margin="1" HorizontalAlignment="Right" Text="OK 배출유지(ms) :"/>
+        <TextBlock Grid.Row="1" Grid.Column="0" Margin="1" HorizontalAlignment="Right" Text="NG1 배출유지(ms) :"/>
+        <TextBlock Grid.Row="1" Grid.Column="2" Margin="1" HorizontalAlignment="Right" Text="NG2 배출유지(ms) :"/>
+        <TextBlock Grid.Row="2" Grid.Column="0" Margin="1" HorizontalAlignment="Right" Text="미처리 배출유지(ms) :"/>
+        <TextBlock Grid.Row="2" Grid.Column="2" Margin="1" HorizontalAlignment="Right" Text="Stop 이후 정지(ms) :"/>
+        <TextBlock Grid.Row="3" Grid.Column="0" Margin="1" HorizontalAlignment="Right" Text="Start 이후 시간(ms) :"/>
+        <TextBlock Grid.Row="3" Grid.Column="2" Margin="1" HorizontalAlignment="Right" Text="공급 지연 시간(ms) :"/>
+        <TextBlock Grid.Row="4" Grid.Column="0" Margin="1" HorizontalAlignment="Right" Text="공급 지연 장비정지(ms) :"/>
+
+        <TextBox Grid.Row="0" Grid.Column="1" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding CAM_RESULT_Waiting_Time, Mode=TwoWay}" />
+        <TextBox Grid.Row="0" Grid.Column="3" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding OK_Expose_Time, Mode=TwoWay}" />
+        <TextBox Grid.Row="1" Grid.Column="1" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding NG1_Expose_Time, Mode=TwoWay}" />
+        <TextBox Grid.Row="1" Grid.Column="3" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding NG2_Expose_Time, Mode=TwoWay}" />
+        <TextBox Grid.Row="2" Grid.Column="1" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding UNTREAT_Expose_Time, Mode=TwoWay}" />
+        <TextBox Grid.Row="2" Grid.Column="3" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding STOP_After_Delay_Time, Mode=TwoWay}" />
+        <TextBox Grid.Row="3" Grid.Column="1" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding START_After_Delay_Time, Mode=TwoWay}" />
+        <TextBox Grid.Row="3" Grid.Column="3" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding Supply_Delay_Time, Mode=TwoWay}" />
+        <TextBox Grid.Row="4" Grid.Column="1" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding Supply_Delay_Equipment_Stop_Time, Mode=TwoWay}" />
+
+        <CheckBox Grid.Row="4" Grid.Column="2" Grid.ColumnSpan="2" Margin="20,1,1,1"
+                          IsChecked="{Binding Lighting_Trigger_Enable, Mode=TwoWay}" Content="조명 Trigger Enable"/>
+
+        <TextBlock Grid.Row="5" Grid.Column="0" Margin="1" HorizontalAlignment="Right" Text="조명 켜지는 위치 :"/>
+        <TextBlock Grid.Row="5" Grid.Column="2" Margin="1" HorizontalAlignment="Right" Text="조명 유지 시간(ms) :"/>
+
+        <TextBox Grid.Row="5" Grid.Column="1" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding Lighting_Position, Mode=TwoWay}" />
+        <TextBox Grid.Row="5" Grid.Column="3" Margin="1" BorderBrush="Gray" TextAlignment="Right"
+                         Text="{Binding Lighting_Time, Mode=TwoWay}" />
+
+        <Button Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="4" Margin="130,2,130,2"
+                        Command="{Binding Send_Setting2}" Foreground="Purple" Content="Send Setting 2" />
+    </Grid>
+</UserControl>

@@ -1,0 +1,7 @@
+07:00:32 **** Clean-only build of configuration Debug for project VI ****
+make -j6 clean 
+rm -rf *
+ 
+
+07:00:41 Build Finished. 0 errors, 0 warnings. (took 9s.505ms)
+

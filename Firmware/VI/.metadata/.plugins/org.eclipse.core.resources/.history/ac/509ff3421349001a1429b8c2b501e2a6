@@ -1,0 +1,31 @@
+/*
+ * DebugMessages.c
+ *
+ *  Created on: 2020. 2. 6.
+ *      Author: DHKim
+ */
+
+
+
+
+
+
+// TaskTCP
+char* debug_tcpConnected = "TCP is just connected now.";
+char* debug_setting_1_message = "setting 1 message received.";
+char* debug_setting_2_message = "setting 2 message received.";
+char* debug_camResult_message = "CAM Result message received.";
+char* debug_ExposeSetting_message = "Expose setting message received.";
+char* debug_StartStop_message = "Start / Stop message received.";
+char* debug_DataReset_message = "Data Reset message received.";
+char* debug_Jog_Finding_message = "Jog - Finding First product.";
+char* debug_Jog_enter_fail_message = "Jog mode can be entered only in RUN state.";
+char* debug_Jog_Leave_fail_message = "Jog mode can be leaved only in Jog mode state.";
+char* debug_Jog_Leave_message = "Leave the Jog Mode.";
+char* debug_Jog_Order_message = "Jog order message received.";
+char* debug_Jog_Order_not_works_message = "VI is not in JOG_RUN Mode.";
+
+
+
+
+

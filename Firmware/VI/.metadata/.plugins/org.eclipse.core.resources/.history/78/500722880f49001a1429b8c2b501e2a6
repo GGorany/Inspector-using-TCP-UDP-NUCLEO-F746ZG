@@ -1,0 +1,619 @@
+/*
+ * TaskRun.c
+ *
+ *  Created on: 2019. 11. 22.
+ *      Author: DHKim
+ */
+
+
+/**********************************************************************************************************************
+* MODULES USED
+**********************************************************************************************************************/
+#include "TaskRun.h"
+#include "TaskTCP.h"
+
+#include "../BSW/Encoder.h"
+#include "../BSW/Outputs.h"
+#include "../BSW/Inputs.h"
+
+#include "../SERVICE/Bolt.h"
+#include "../SERVICE/Camera.h"
+#include "../SERVICE/Lighting.h"
+#include "../SERVICE/SolValve.h"
+#include "../SERVICE/Servo.h"
+#include "../SERVICE/StateMachine.h"
+#include "../SERVICE/VI_Data.h"
+
+#include "../LIB/Bytearray.h"
+
+/**********************************************************************************************************************
+* DEFINITIONS AND MACROS
+**********************************************************************************************************************/
+
+/**********************************************************************************************************************
+* TYPEDEFS AND STRUCTURES
+**********************************************************************************************************************/
+typedef enum
+{
+	NotPushed 	= 0x00,
+	Pushed		= 0x01
+} Buttons_Type;
+
+/**********************************************************************************************************************
+* PROTOTYPES OF FUNCTIONS
+**********************************************************************************************************************/
+void Buttons(void);
+
+void Process_VI(void);
+void Process_VI_RUN(void);
+
+int Is_CamResult_OK(Bolt* bolt);
+int Is_CamResult_NG1(Bolt* bolt);
+int Is_CamResult_NG2(Bolt* bolt);
+
+void Request_CAMResult(uint8_t camNum, uint32_t boltNum);
+
+
+/**********************************************************************************************************************
+* DECLARATIONS OF VARIABLES
+**********************************************************************************************************************/
+uint32_t position_JOG_ORDER = 0;
+
+
+/*--------------------------------------------------------------------------*/
+/* Name      | TaskRun_Main                                                 */
+/*--------------------------------------------------------------------------*/
+void TaskRun_Main(void)
+{
+	Buttons();
+
+	Servo_Main();
+
+	Process_VI();
+}
+
+
+/*--------------------------------------------------------------------------*/
+/* Name      | Buttons                                                      */
+/*--------------------------------------------------------------------------*/
+void Buttons(void)
+{
+	static Buttons_Type startButton = NotPushed;
+	static Buttons_Type stopButton = NotPushed;
+
+	static InputPinState Pre_startButton = Input_PIN_Low;
+	static InputPinState Pre_stopButton = Input_PIN_Low;
+
+	State_Type state = Get_VI_state();
+
+	// startButton
+	if ((Pre_startButton == Input_PIN_Low) && (read_PUSHSTART() == Input_PIN_High))
+		startButton = Pushed;
+	else
+		startButton = NotPushed;
+
+	// stopButton
+	if ((Pre_stopButton == Input_PIN_Low) && (read_PUSHSTOP() == Input_PIN_High))
+		stopButton = Pushed;
+	else
+		stopButton = NotPushed;
+
+	// stopButton is high priority
+	if ((startButton == Pushed) && (stopButton == Pushed))
+	{
+		startButton = NotPushed;
+	}
+
+	Pre_startButton = read_PUSHSTART();
+	Pre_stopButton = read_PUSHSTOP();
+
+
+	if (startButton == Pushed)
+	{
+		if (state == STATE_STOP)
+		{
+			Set_VI_state(STATE_RUN);
+		}
+	}
+
+	if (stopButton == Pushed)
+	{
+		if ((state == STATE_RUN) || (state == STATE_JOG_FINDING) || (state == STATE_JOG_RUN))
+		{
+			Set_VI_state(STATE_STOPPING);
+		}
+	}
+}
+
+
+/*--------------------------------------------------------------------------*/
+/* Name      | Process_VI                                                   */
+/*--------------------------------------------------------------------------*/
+void Process_VI(void)
+{
+	int deffPosition = 0;
+
+	switch (Get_VI_state())
+	{
+	case STATE_STOP:
+		set_LINE_FEEDER(Output_PIN_Low);
+		set_HOPPER(Output_PIN_Low);
+		set_CONVEYOR(Output_PIN_Low);
+		set_SERVO_READY(Output_PIN_Low);
+		set_SERVO_EMG(Output_PIN_Low);
+		set_START_BUTTON_LAMP(Output_PIN_Low);
+		set_STOP_BUTTON_LAMP(Output_PIN_High);
+		set_TOWER_LAMP_GREEN(Output_PIN_Low);
+		set_TOWER_LAMP_RED(Output_PIN_High);
+		break;
+
+	case STATE_RUN:
+		set_LINE_FEEDER(Output_PIN_High);
+		set_HOPPER(Output_PIN_High);
+		set_CONVEYOR(Output_PIN_High);
+		set_SERVO_READY(Output_PIN_High);
+		set_SERVO_EMG(Output_PIN_High);
+		set_START_BUTTON_LAMP(Output_PIN_High);
+		set_STOP_BUTTON_LAMP(Output_PIN_Low);
+		set_TOWER_LAMP_GREEN(Output_PIN_High);
+		set_TOWER_LAMP_RED(Output_PIN_Low);
+
+		Process_VI_RUN();
+		break;
+
+	case STATE_STOPPING:
+		set_LINE_FEEDER(Output_PIN_Low);
+		set_HOPPER(Output_PIN_Low);
+		set_CONVEYOR(Output_PIN_Low);
+		set_SERVO_READY(Output_PIN_High);
+		set_SERVO_EMG(Output_PIN_High);
+		set_START_BUTTON_LAMP(Output_PIN_High);
+		set_STOP_BUTTON_LAMP(Output_PIN_Low);
+		set_TOWER_LAMP_GREEN(Output_PIN_High);
+		set_TOWER_LAMP_RED(Output_PIN_Low);
+
+		Process_VI_RUN();
+
+		if (Bolt_Get_Count() == 0)
+			Set_VI_state(STATE_STOP);
+
+		break;
+
+	case STATE_JOG_FINDING:
+		if (Bolt_Get_Input() == 1)
+		{
+			Encoder_Clear_A_Counter();
+			Set_VI_state(STATE_JOG_RUN);
+		}
+		break;
+
+	case STATE_JOG_RUN:
+		deffPosition = (int)position_JOG_ORDER - (int)Encoder_Get_A_Counter();
+
+		if (deffPosition == 0)
+		{
+			Servo_SetJOG(Forward, 0);
+		}
+		else if (deffPosition > 0)
+		{
+			Servo_SetJOG(Forward, JOG_MODE_SPEED);
+		}
+		else if (deffPosition < 0)
+		{
+			Servo_SetJOG(Backward, JOG_MODE_SPEED);
+		}
+
+		break;
+
+	default:
+		break;
+	}
+}
+
+
+/*--------------------------------------------------------------------------*/
+/* Name      | Process_VI_RUN                                               */
+/*--------------------------------------------------------------------------*/
+void Process_VI_RUN(void)
+{
+	Bolt* bolt = NULL;
+	uint32_t currentPosition = Encoder_Get_A_Counter();
+	uint32_t boltposition = 0;
+
+	// check Bolt come in.
+	if (Bolt_Get_Input() == 1)
+	{
+		status_Data.w.Input_Sensing_Count++;		// bolt number
+		Bolt_Add(status_Data.w.Input_Sensing_Count, currentPosition);
+	}
+
+	if (Bolt_Get_Count() == 0)
+		return;
+
+	while(NULL != (bolt = (Bolt*)Bolt_Get_OnebyOne()))
+	{
+		boltposition = (uint32_t)(currentPosition - bolt->inputposition);
+
+		if (*(cam0.pEnable) == 1)	// CAM0
+		{
+			if (bolt->process.cam[0] == NOT_YET)
+			{
+				if (setting_Data_1.w.CAM0_position <= boltposition)
+				{
+					Camera_Trigger_ON(&cam0);
+
+					Request_CAMResult(0, bolt->number);
+					bolt->process.cam[0] = WAITING_RESULT;
+					status_Data.w.CAM0_Trigger_Count++;
+				}
+			}
+
+			if (setting_Data_2.w.Lighting_Trigger_Enable == 1)	// Lighting Trigger Enable
+			{
+				if (bolt->process.lighting[0] == NOT_YET)
+				{
+					if ((setting_Data_1.w.CAM0_position - setting_Data_2.w.Lighting_Trigger_Position) <= boltposition)
+					{
+						bolt->process.lighting[0] = DONE;
+						Lighting_Trigger_ON(&lighting0);
+					}
+				}
+			}
+		}
+
+		if (*(cam1.pEnable) == 1)	// CAM1
+		{
+			if (bolt->process.cam[1] == NOT_YET)
+			{
+				if (setting_Data_1.w.CAM1_position <= boltposition)
+				{
+					Camera_Trigger_ON(&cam1);
+
+					Request_CAMResult(1, bolt->number);
+					bolt->process.cam[1] = WAITING_RESULT;
+					status_Data.w.CAM1_Trigger_Count++;
+				}
+			}
+
+			if (setting_Data_2.w.Lighting_Trigger_Enable == 1)	// Lighting Trigger Enable
+			{
+				if (bolt->process.lighting[1] == NOT_YET)
+				{
+					if ((setting_Data_1.w.CAM1_position - setting_Data_2.w.Lighting_Trigger_Position) <= boltposition)
+					{
+						bolt->process.lighting[1] = DONE;
+						Lighting_Trigger_ON(&lighting1);
+					}
+				}
+			}
+		}
+
+		if (*(cam2.pEnable) == 1)	// CAM2
+		{
+			if (bolt->process.cam[2] == NOT_YET)
+			{
+				if (setting_Data_1.w.CAM2_position <= boltposition)
+				{
+					Camera_Trigger_ON(&cam2);
+
+					Request_CAMResult(2, bolt->number);
+					bolt->process.cam[2] = WAITING_RESULT;
+					status_Data.w.CAM2_Trigger_Count++;
+				}
+			}
+
+			if (setting_Data_2.w.Lighting_Trigger_Enable == 1)	// Lighting Trigger Enable
+			{
+				if (bolt->process.lighting[2] == NOT_YET)
+				{
+					if ((setting_Data_1.w.CAM2_position - setting_Data_2.w.Lighting_Trigger_Position) <= boltposition)
+					{
+						bolt->process.lighting[2] = DONE;
+						Lighting_Trigger_ON(&lighting2);
+					}
+				}
+			}
+		}
+
+		if (*(cam3.pEnable) == 1)	// CAM3
+		{
+			if (bolt->process.cam[3] == NOT_YET)
+			{
+				if (setting_Data_1.w.CAM3_position <= boltposition)
+				{
+					Camera_Trigger_ON(&cam3);
+
+					Request_CAMResult(3, bolt->number);
+					bolt->process.cam[3] = WAITING_RESULT;
+					status_Data.w.CAM3_Trigger_Count++;
+				}
+			}
+
+			if (setting_Data_2.w.Lighting_Trigger_Enable == 1)	// Lighting Trigger Enable
+			{
+				if (bolt->process.lighting[3] == NOT_YET)
+				{
+					if ((setting_Data_1.w.CAM3_position - setting_Data_2.w.Lighting_Trigger_Position) <= boltposition)
+					{
+						bolt->process.lighting[3] = DONE;
+						Lighting_Trigger_ON(&lighting3);
+					}
+				}
+			}
+		}
+
+		if (setting_Data_1.w.OK_Expose_position <= boltposition)	// Expose OK
+		{
+			if (bolt->process.expose_OK == NOT_YET)
+			{
+				bolt->process.expose_OK = DONE;
+				if (Is_CamResult_OK(bolt) == 0)	// All OK
+				{
+					if (Is_Prohibit_Expose == 0)
+					{
+						SolValve_Activate(&solValve_OK);
+						status_Data.w.OK_Expose_Count++;
+					}
+
+					Bolt_Remove(bolt);
+					continue;
+				}
+			}
+		}
+
+		if (setting_Data_1.w.NG1_Expose_position <= boltposition)	// Expose NG1
+		{
+			if (bolt->process.expose_NG1 == NOT_YET)
+			{
+				bolt->process.expose_NG1 = DONE;
+				if (Is_CamResult_NG1(bolt) == 0)	// NG1
+				{
+					if (Is_Prohibit_Expose == 0)
+					{
+						SolValve_Activate(&solValve_NG1);
+						status_Data.w.NG1_Expose_Count++;
+					}
+
+					Bolt_Remove(bolt);
+					continue;
+				}
+			}
+		}
+
+		if (setting_Data_1.w.NG2_Expose_position <= boltposition)	// Expose NG2
+		{
+			if (bolt->process.expose_NG2 == NOT_YET)
+			{
+				bolt->process.expose_NG2 = DONE;
+				if (Is_CamResult_NG2(bolt) == 0)	// NG2
+				{
+					if (Is_Prohibit_Expose == 0)
+					{
+						SolValve_Activate(&solValve_NG2);
+						status_Data.w.NG2_Expose_Count++;
+					}
+
+					Bolt_Remove(bolt);
+					continue;
+				}
+			}
+		}
+
+		if (setting_Data_1.w.UNTREAT_Expose_position <= boltposition)	// Expose UNTREAT
+		{
+			if (Is_Prohibit_Expose == 0)
+			{
+				SolValve_Activate(&solValve_UNTREAT);
+				status_Data.w.UNTREAT_Expose_Count++;
+			}
+
+			Bolt_Remove(bolt);
+			continue;
+		}
+	}
+}
+
+
+/*--------------------------------------------------------------------------*/
+/* Name      | Is_CamResult_OK                                              */
+/*--------------------------------------------------------------------------*/
+int Is_CamResult_OK(Bolt* bolt)
+{
+	if (*(cam0.pEnable) == 1)
+	{
+		if (bolt->cam[0] != CAM_OK)
+			return -1;
+
+		if (bolt->process.cam[0] != DONE)
+			return -1;
+	}
+
+	if (*(cam1.pEnable) == 1)
+	{
+		if (bolt->cam[1] != CAM_OK)
+			return -1;
+
+		if (bolt->process.cam[1] != DONE)
+			return -1;
+	}
+
+	if (*(cam2.pEnable) == 1)
+	{
+		if (bolt->cam[2] != CAM_OK)
+			return -1;
+
+		if (bolt->process.cam[2] != DONE)
+			return -1;
+	}
+
+	if (*(cam3.pEnable) == 1)
+	{
+		if (bolt->cam[3] != CAM_OK)
+			return -1;
+
+		if (bolt->process.cam[3] != DONE)
+			return -1;
+	}
+
+	return 0;
+}
+
+/*--------------------------------------------------------------------------*/
+/* Name      | Is_CamResult_NG1                                             */
+/*--------------------------------------------------------------------------*/
+int Is_CamResult_NG1(Bolt* bolt)
+{
+	int countNG1 = 0;
+
+	if (*(cam0.pEnable) == 1)
+	{
+		if (bolt->process.cam[0] != DONE)
+			return -1;
+
+		if (bolt->cam[0] == CAM_OK)
+			;
+		else if (bolt->cam[0] == CAM_NG1)
+			countNG1++;
+		else
+			return -1;
+	}
+
+	if (*(cam1.pEnable) == 1)
+	{
+		if (bolt->process.cam[1] != DONE)
+			return -1;
+
+		if (bolt->cam[1] == CAM_OK)
+			;
+		else if (bolt->cam[1] == CAM_NG1)
+			countNG1++;
+		else
+			return -1;
+	}
+
+	if (*(cam2.pEnable) == 1)
+	{
+		if (bolt->process.cam[2] != DONE)
+			return -1;
+
+		if (bolt->cam[2] == CAM_OK)
+			;
+		else if (bolt->cam[2] == CAM_NG1)
+			countNG1++;
+		else
+			return -1;
+	}
+
+	if (*(cam3.pEnable) == 1)
+	{
+		if (bolt->process.cam[3] != DONE)
+			return -1;
+
+		if (bolt->cam[3] == CAM_OK)
+			;
+		else if (bolt->cam[3] == CAM_NG1)
+			countNG1++;
+		else
+			return -1;
+	}
+
+	if (countNG1 == 0)
+		return -1;
+
+	return 0;
+}
+
+/*--------------------------------------------------------------------------*/
+/* Name      | Is_CamResult_NG2                                             */
+/*--------------------------------------------------------------------------*/
+int Is_CamResult_NG2(Bolt* bolt)
+{
+	int countNG2orNG3 = 0;
+	int countOKorNG1 = 0;
+	int countOthers = 0;
+
+	if (*(cam0.pEnable) == 1)
+	{
+		if (bolt->process.cam[0] != DONE)
+			return -1;
+
+		if ((bolt->cam[0] == CAM_NG2) || (bolt->cam[0] == CAM_NG3))
+			countNG2orNG3++;
+		else if ((bolt->cam[0] == CAM_OK) || (bolt->cam[0] == CAM_NG1))
+			countOKorNG1++;
+		else
+			return -1;
+	}
+
+	if (*(cam1.pEnable) == 1)
+	{
+		if (bolt->process.cam[1] != DONE)
+			return -1;
+
+		if (bolt->cam[1] == CAM_OK)
+			countOK++;
+		else if (bolt->cam[1] == CAM_NG1)
+			countNG1++;
+		else
+			countOthers++;
+	}
+
+	if (*(cam2.pEnable) == 1)
+	{
+		if (bolt->process.cam[2] != DONE)
+			return -1;
+
+		if (bolt->cam[2] == CAM_OK)
+			countOK++;
+		else if (bolt->cam[2] == CAM_NG1)
+			countNG1++;
+		else
+			countOthers++;
+	}
+
+	if (*(cam3.pEnable) == 1)
+	{
+		if (bolt->process.cam[3] != DONE)
+			return -1;
+
+		if (bolt->cam[3] == CAM_OK)
+			countOK++;
+		else if (bolt->cam[3] == CAM_NG1)
+			countNG1++;
+		else
+			countOthers++;
+	}
+
+	if (countOthers != 0)
+		return -1;
+
+	if (countNG1 == 0)
+		return -1;
+
+	return 0;
+}
+
+/*--------------------------------------------------------------------------*/
+/* Name      | Request_CAMResult                                            */
+/*--------------------------------------------------------------------------*/
+void Request_CAMResult(uint8_t camNum, uint32_t boltNum)
+{
+	uint8_t ans[7] = {0, };
+
+	ans[0] = 0xC0;
+	ans[1] = 0xC0;
+	ans[2] = camNum;
+
+	uint32_to_bytearray(boltNum, &ans[3]);
+
+	TCP_SendData(ans, 7);
+}
+
+/*--------------------------------------------------------------------------*/
+/* Name      | Set_position_JOG_ORDER                                       */
+/*--------------------------------------------------------------------------*/
+void Set_position_JOG_ORDER(uint32_t position)
+{
+	position_JOG_ORDER = position;
+}
+

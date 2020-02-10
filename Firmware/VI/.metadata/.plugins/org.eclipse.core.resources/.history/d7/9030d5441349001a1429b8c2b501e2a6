@@ -1,0 +1,33 @@
+/*
+ * DebugMessages.h
+ *
+ *  Created on: 2020. 2. 6.
+ *      Author: TE Korea MDE
+ */
+
+#ifndef SRC_ASW_DEBUGMESSAGES_H_
+#define SRC_ASW_DEBUGMESSAGES_H_
+
+
+
+// TaskTCP
+extern char* debug_tcpConnected;
+extern char* debug_setting_1_message;
+extern char* debug_setting_2_message;
+extern char* debug_camResult_message;
+extern char* debug_ExposeSetting_message;
+extern char* debug_StartStop_message;
+extern char* debug_DataReset_message;
+extern char* debug_Jog_Finding_message;
+extern char* debug_Jog_enter_fail_message;
+extern char* debug_Jog_Leave_fail_message;
+extern char* debug_Jog_Leave_message;
+extern char* debug_Jog_Order_message;
+extern char* debug_Jog_Order_not_works_message;
+
+
+
+
+
+
+#endif /* SRC_ASW_DEBUGMESSAGES_H_ */

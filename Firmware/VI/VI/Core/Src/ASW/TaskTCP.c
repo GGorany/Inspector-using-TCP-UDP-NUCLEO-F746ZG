@@ -1,0 +1,273 @@
+/*
+ * TaskTCP.c
+ *
+ *  Created on: 2020. 1. 25.
+ *      Author: DHKim
+ */
+
+
+/**********************************************************************************************************************
+* MODULES USED
+**********************************************************************************************************************/
+#include "lwip.h"
+#include "lwip/api.h"
+#include "ip_addr.h"
+#include <string.h>
+
+#include "TaskTCP.h"
+
+#include "IP_Info.h"
+#include "Message.h"
+#include "TaskRun.h"
+
+#include "../SERVICE/Servo.h"
+#include "../SERVICE/VI_Data.h"
+#include "../SERVICE/LED.h"
+#include "../SERVICE/Bolt.h"
+#include "../SERVICE/StateMachine.h"
+
+#include "../LIB/Bytearray.h"
+
+/**********************************************************************************************************************
+* DEFINITIONS AND MACROS
+**********************************************************************************************************************/
+#define TCP_SEND_DATA	0x80
+
+#define JOG_START	1
+#define JOG_STOP	0
+
+#define MAX_SENDTCPDATA		256
+
+/**********************************************************************************************************************
+* TYPEDEFS AND STRUCTURES
+**********************************************************************************************************************/
+
+/**********************************************************************************************************************
+* PROTOTYPES OF FUNCTIONS
+**********************************************************************************************************************/
+void TaskTCP_ReceiveData(void *src, u16_t len);
+void Set_CAMResult(uint8_t* Data, uint16_t Len);
+
+/**********************************************************************************************************************
+* DECLARATIONS OF VARIABLES
+**********************************************************************************************************************/
+uint8_t tcp_send_flag = 0;
+uint8_t sendTCPdata[MAX_SENDTCPDATA] = {0, };
+uint16_t sendTCPdata_len = 0;
+
+
+/*--------------------------------------------------------------------------*/
+/* Name      | TaskTCP_Main                     		                    */
+/*--------------------------------------------------------------------------*/
+void TaskTCP_Main(void)
+{
+	void *data;
+	u16_t len;
+	err_t accept_err, recv_err, send_err;
+	struct netconn *tcpconn, *newconn;
+
+	tcpconn = netconn_new(NETCONN_TCP);
+	netconn_bind(tcpconn, IP_ADDR_ANY, PORT_TCP_SERVER);
+	netconn_listen(tcpconn);
+
+	while(1)
+	{
+		// Grab new connection.
+		accept_err = netconn_accept(tcpconn, &newconn);
+
+		// Process the new connection.
+		if (accept_err == ERR_OK)
+		{
+			struct netbuf *recvbuf;
+
+			while(newconn != NULL)
+			{
+				// Send
+				if (tcp_send_flag == TCP_SEND_DATA)
+				{
+					send_err = netconn_write(newconn, sendTCPdata, sendTCPdata_len, NETCONN_COPY);
+					tcp_send_flag = 0;
+
+					if (send_err == ERR_OK)
+						led_RED.pSetLED(LED_ON);
+				}
+
+				// Receive
+				netconn_set_recvtimeout(newconn, 1);
+				recv_err = netconn_recv(newconn, &recvbuf);
+				if (recv_err == ERR_OK)
+				{
+					led_BLUE.pSetLED(LED_ON);
+
+					netbuf_data(recvbuf, &data, &len);
+					TaskTCP_ReceiveData(data, len);
+
+					netbuf_delete(recvbuf);
+				}
+				else if (recv_err == ERR_CLSD)
+				{
+					// Close connection and discard connection identifier.
+					netconn_close(newconn);
+					netconn_delete(newconn);
+					newconn = NULL;
+				}
+			}
+		}
+	}
+}
+
+/*--------------------------------------------------------------------------*/
+/* Name      | TCP_SendDebugMessage                                         */
+/*--------------------------------------------------------------------------*/
+void TCP_SendDebugMessage(char *str)
+{
+	memset(sendTCPdata, 0, sizeof(sendTCPdata));
+
+	sendTCPdata[0] = 0xE0;
+	sendTCPdata[1] = 0xE0;
+
+	memcpy(&sendTCPdata[2], str, strlen(str));
+	sendTCPdata_len = strlen(str) + 2;
+	tcp_send_flag = TCP_SEND_DATA;
+}
+
+/*--------------------------------------------------------------------------*/
+/* Name      | TCP_SendData                        	                        */
+/*--------------------------------------------------------------------------*/
+void TCP_SendData(uint8_t *data, uint16_t len)
+{
+	memset(sendTCPdata, 0, sizeof(sendTCPdata));
+
+	memcpy(sendTCPdata, data, len);
+	sendTCPdata_len = len;
+	tcp_send_flag = TCP_SEND_DATA;
+}
+
+/*--------------------------------------------------------------------------*/
+/* Name      | TaskTCP_ReceiveData                     	                    */
+/*--------------------------------------------------------------------------*/
+void TaskTCP_ReceiveData(void *src, u16_t len)
+{
+	uint16_t identifier = 0x0000;
+	uint8_t* rcvdata = (uint8_t*)src;
+
+	identifier = bytearray_to_uint16(&rcvdata[0]);
+
+	switch (identifier)
+	{
+	case ID_Setting_1:
+		setting_Data_1.w.CAM0_Enable = rcvdata[2];
+		setting_Data_1.w.CAM1_Enable = rcvdata[3];
+		setting_Data_1.w.CAM2_Enable = rcvdata[4];
+		setting_Data_1.w.CAM3_Enable = rcvdata[5];
+		setting_Data_1.w.CAM0_position = bytearray_to_uint32(&rcvdata[6]);
+		setting_Data_1.w.CAM1_position = bytearray_to_uint32(&rcvdata[10]);
+		setting_Data_1.w.CAM2_position = bytearray_to_uint32(&rcvdata[14]);
+		setting_Data_1.w.CAM3_position = bytearray_to_uint32(&rcvdata[18]);
+		setting_Data_1.w.OK_Expose_position = bytearray_to_uint32(&rcvdata[22]);
+		setting_Data_1.w.NG1_Expose_position = bytearray_to_uint32(&rcvdata[26]);
+		setting_Data_1.w.NG2_Expose_position = bytearray_to_uint32(&rcvdata[30]);
+		setting_Data_1.w.UNTREAT_Expose_position = bytearray_to_uint32(&rcvdata[34]);
+		setting_Data_1.w.Servo_Motor_Speed = bytearray_to_uint16(&rcvdata[38]);
+		if (setting_Data_1.w.Servo_Motor_Speed >= MAX_SPEED)
+		{
+			setting_Data_1.w.Servo_Motor_Speed = MAX_SPEED;
+		}
+
+		VI_Data_Setting_Data_1_Write_to_E2P();
+		break;
+
+	case ID_Setting_2:
+		setting_Data_2.w.CAMResult_WaitTime = bytearray_to_uint16(&rcvdata[2]);
+		setting_Data_2.w.OK_Expose_Time = bytearray_to_uint16(&rcvdata[4]);
+		setting_Data_2.w.NG1_Expose_Time = bytearray_to_uint16(&rcvdata[6]);
+		setting_Data_2.w.NG2_Expose_Time = bytearray_to_uint16(&rcvdata[8]);
+		setting_Data_2.w.UNTREAT_Expose_Time = bytearray_to_uint16(&rcvdata[10]);
+		setting_Data_2.w.STOP_DelayTime_After_STOPBUTTON = bytearray_to_uint16(&rcvdata[12]);
+		setting_Data_2.w.START_DelayTime_After_STARTBUTTON = bytearray_to_uint16(&rcvdata[14]);
+		setting_Data_2.w.Input_DelayTime = bytearray_to_uint16(&rcvdata[16]);
+		setting_Data_2.w.Input_DelayTime_to_Stop = bytearray_to_uint16(&rcvdata[18]);
+		setting_Data_2.w.Lighting_Trigger_Enable = rcvdata[20];
+		setting_Data_2.w.Lighting_Trigger_Position = bytearray_to_uint32(&rcvdata[21]);
+		setting_Data_2.w.Lighting_Trigger_ON_Time = bytearray_to_uint16(&rcvdata[25]);
+
+		VI_Data_Setting_Data_2_Write_to_E2P();
+		break;
+
+	case ID_Answer_CAMResult:
+		Set_CAMResult(rcvdata, len);
+		break;
+
+	case ID_Command_Expose:
+		Is_Prohibit_Expose = rcvdata[2];
+		break;
+
+	case ID_Command_StartInspection:
+		Is_StartInspection = rcvdata[2];
+		break;
+
+	case ID_Command_Reset:
+		Bolt_Init();
+		VI_Data_Status_Data_Reset();
+		break;
+
+	case ID_Command_JogModeSet:
+		if (rcvdata[2] == JOG_START)
+		{
+			if (Get_VI_state() == STATE_RUN)
+			{
+				Set_VI_state(STATE_JOG_FINDING);
+			}
+		}
+		else if (rcvdata[2] == JOG_STOP)
+		{
+			if ((Get_VI_state() == STATE_JOG_FINDING) || (Get_VI_state() == STATE_JOG_RUN))
+			{
+				Set_VI_state(STATE_RUN);
+			}
+		}
+		break;
+
+	case ID_Command_JogPosition:
+		if (Get_VI_state() == STATE_JOG_RUN)
+		{
+			Set_position_JOG_ORDER(bytearray_to_uint32(&rcvdata[2]));
+		}
+		break;
+
+	default:
+		break;
+	}
+}
+
+/*--------------------------------------------------------------------------*/
+/* Name      | Set_CAMResult                         	                    */
+/*--------------------------------------------------------------------------*/
+void Set_CAMResult(uint8_t* Data, uint16_t Len)
+{
+	Bolt* bolt = NULL;
+
+	uint8_t camNum = Data[2];
+	uint32_t boltNum = bytearray_to_uint32(&Data[3]);
+	uint8_t result = Data[7];
+
+	if ((camNum != 0) && (camNum != 1) && (camNum != 2) && (camNum != 3) )
+	{
+		return;
+	}
+
+	if ((result != CAM_NG1) && (result != CAM_NG2) && (result != CAM_NG3) && (result != CAM_OK))
+	{
+		return;
+	}
+
+	while(NULL != (bolt = Bolt_Get_OnebyOne()))
+	{
+		if (bolt->number == boltNum)
+		{
+			bolt->cam[camNum] = (CamResult)result;
+			bolt->process.cam[camNum] = DONE;
+		}
+	}
+}
+

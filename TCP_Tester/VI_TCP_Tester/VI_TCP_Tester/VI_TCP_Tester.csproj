@@ -1,0 +1,57 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>VI_TCP_Tester</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Prism.Unity" Version="7.2.0.1367" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Views\Command_Reset.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Command_StartInspection.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Command_Expose.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Command_Jog.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\CamRespond.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\CamRequest.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Setting2.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Command_Reset.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Command_StartInspection.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Command_Expose.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Command_Jog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\CamRespond.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\CamRequest.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Setting2.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+</Project>
